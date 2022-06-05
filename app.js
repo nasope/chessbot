@@ -54,6 +54,11 @@ function checkValid(req) {
   const username = req.cookies.username
   const ID = req.cookies.userID
   const session = req.cookies.sessiontoken
+
+  if (username === '') {return false}
+  if (ID === '') {return false}
+  if (session === '') {return false}
+
   //console.log(username+" "+ID+" "+session);
   if (isNaN(ID)) {return false;}
   if (ID >= database.length) {return false;}
