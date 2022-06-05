@@ -1,2 +1,23 @@
+<h1> welcome back <%=name%>!</h1>
+
 <a href="/signout">signout</a>
-<a href="/chatroom">signout</a>
+<a href="/chess">chess</a>
+
+<div class="chat" id="global">
+    <h1>Global chat</h1>
+
+    <div id="messages">
+
+    </div>
+
+    <form>
+        <input id="message" type="text" placeholder="enter message">
+        <input type="submit">
+      </form>
+
+      <p id="online"></p>
+</div>
+
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="js/chat.js"></script>
