@@ -13,6 +13,7 @@ let database = JSON.parse(file)
 const bcrypt = require('bcrypt')
 const crypto = require('crypto')
 
+//adds userinfo into the database stored in json
 function addUser(username, password, cookie) {
 
   const user = {
@@ -31,7 +32,7 @@ fs.writeFileSync('database.json', jsoned);
 return (database.length - 1)
 
 };
-
+//find username in database, if it exists return index(ID), if not, -1
 function findUser(username) {
 
   for (let i = 0; i < database.length; i++) {
@@ -42,12 +43,12 @@ function findUser(username) {
   }
   return -1;
 }
-
+//checks and validates the username-,sessionid, and id-token
 function checkValid(req) {
   const username = req.cookies.username
   const ID = req.cookies.userID
   const session = req.signedCookies.sessiontoken
-
+  //console.log(username+" "+ID+" "+session);
   if (isNaN(ID)) {return false;}
   if (ID >= database.length) {return false;}
   //console.log("valid ID")
@@ -58,7 +59,7 @@ function checkValid(req) {
   //console.log("valid username")
   return true;
 }
-
+//checks if form is correct with database
 function validateUser(username, password) {
   const index = findUser(username);
 
@@ -73,7 +74,7 @@ function validateUser(username, password) {
 
   return true;
 }
-
+//updates the sessiontoken in database
 function updateSession(sessiontoken, ID) {
   database[ID].session = sessiontoken
 }
@@ -121,11 +122,10 @@ app.post('/login', (req, res) => {
     const sessiontoken = crypto.randomUUID()
     const ID = findUser(req.body.username)
     res.cookie('userID', ID)
-    res.cookie('sessiontoken', sessiontoken, { signed: true })
-    res.cookie('username', req.body.username)
-    updateSession(sessiontoken, ID)
+    updateSession(sessiontoken, ID);
+    res.cookie('sessiontoken',sessiontoken, { signed: true })
+    res.cookie('username',req.body.username)
     res.redirect('/home')
-
   } else {
     res.redirect('/login')
   }
@@ -153,9 +153,20 @@ app.use((req,res,next) => {
 app.get('/home', (req, res) => {
   res.render('pages/home')
 })
+app.get('/chatroom', (req, res) => {
+  res.render('pages/chatroom')
+})
+
+
+
+
+
+
+
+
+
+
 
 app.listen(port, () => {
   console.log(`App listening at port ${port}`)
 })
-
-

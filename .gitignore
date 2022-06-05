@@ -1,4 +1,4 @@
 /node_modules
-/aupp.js
-/test.js
-
+aupp.js
+test.js
+database.json
