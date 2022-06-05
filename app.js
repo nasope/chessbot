@@ -18,6 +18,7 @@ let database = JSON.parse(file)
 
 const bcrypt = require('bcrypt')
 const crypto = require('crypto')
+const { emit } = require('process')
 
 //adds userinfo into the database stored in json
 function addUser(username, password, cookie) {
@@ -183,8 +184,23 @@ app.get('/home', (req, res) => {
   res.render('pages/home',{name: req.cookies.username})
 })
 
+app.get('/matchMaking', (req, res) => {
+  res.render('pages/matchMaking')
+})
+
+
 app.use(express.static(path.join(__dirname,'public')))
 
+players = {}
+
+function addtomatch(playername) {
+  for (let i = 0; i < players.length; i++) {
+    if (players[i] == playername) {
+      return;
+    }
+  }
+  players.push(playername);
+}
 
 
 io.on('connection', socket => {
@@ -195,27 +211,90 @@ io.on('connection', socket => {
   socket.on('server', (form) => {
     try {
       if(!socketValid(form)) {
+        console.log("valid")
         socket.broadcast.emit('connection', io.engine.clientsCount)
+        socket.emit('redirect', '/')
         socket.disconnect()
       }
     } catch (error) {
       console.log(error)
       socket.broadcast.emit('connection', online)
+      socket.emit('redirect', '/')
       socket.disconnect();
     }
 
-    const newForm = {
-      "USERNAME":"",
-      "MSG":""
+    if(form.TYPE == 'C') {
+      const newForm = {
+        "USERNAME":"",
+        "MSG":""
+      }
+  
+      newForm.USERNAME = form.USERNAME
+      newForm.MSG = form.MSG
+  
+      socket.broadcast.emit(form.ID,newForm)
+  
+      console.log(form.MSG)
+
+
     }
 
-    newForm.USERNAME = form.USERNAME
-    newForm.MSG = form.MSG
+    if (form.TYPE == 'M') {
+      //MSG.ID - join - matching - Create
 
-    socket.broadcast.emit(form.ID,newForm)
+      if (form.ID == 'matching') {
+        //coming soon lmao
+      }
+      if (form.ID == 'create') {
+        const rng = crypto.randomUUID()
 
-    console.log(form.MSG)
+        socket.emit('M',rng)
 
+        socket.on(rng, (message) => {
+          let user1, user2; 
+          let U1start = false
+          let U2start = false
+          let canstart = false;
+          let start = false
+          let white;
+          let time1;
+          let time2;
+
+          if (!start) {
+            if (user1 == "") {
+              user1 = message.USERNAME
+              
+            } else if (user2 == "" && user1 != message.USERNAME) {
+              user2 = message.USERNAME
+              canstart = true
+            }
+  
+            if (canstart && !start) {
+              if (user1 == message.USERNAME) {
+                if (message.START == true) {
+                  U1start = true;
+                }
+                if (user2 == message.USERNAME) {
+                  if (message.START == true) {
+                    U2start = true;
+                  }
+                }
+              }
+            }
+            if (user1 && user2) {
+              start = true;
+            }
+
+          } else {
+            if (user1 == message.USERNAME || user2 == message.USERNAME) {
+
+            }
+          }
+
+        })
+      }
+
+    }
   })
 
 
