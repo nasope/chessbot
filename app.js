@@ -1,10 +1,16 @@
 const express = require('express')
-const port = 3000
 const bodyparser = require('body-parser')
 const cookieParser = require('cookie-parser')
+const port = 3000
 
 const app = express()
 app.use(cookieParser('secretKey'))
+
+const http = require('http');
+const socketio = require('socket.io')
+const server = http.createServer(app);
+const io = socketio(server);
+const path = require('path')
 
 const fs = require('fs')
 let file = fs.readFileSync('./database.json')
@@ -13,6 +19,7 @@ let database = JSON.parse(file)
 const bcrypt = require('bcrypt')
 const crypto = require('crypto')
 
+//adds userinfo into the database stored in json
 function addUser(username, password, cookie) {
 
   const user = {
@@ -31,7 +38,7 @@ fs.writeFileSync('database.json', jsoned);
 return (database.length - 1)
 
 };
-
+//find username in database, if it exists return index(ID), if not, -1
 function findUser(username) {
 
   for (let i = 0; i < database.length; i++) {
@@ -42,11 +49,26 @@ function findUser(username) {
   }
   return -1;
 }
-
+//checks and validates the username-,sessionid, and id-token
 function checkValid(req) {
   const username = req.cookies.username
   const ID = req.cookies.userID
-  const session = req.signedCookies.sessiontoken
+  const session = req.cookies.sessiontoken
+  //console.log(username+" "+ID+" "+session);
+  if (isNaN(ID)) {return false;}
+  if (ID >= database.length) {return false;}
+  //console.log("valid ID")
+  if (typeof session === 'undefined') {return false}
+  if (database[ID].session != session) {return false;}
+  //console.log("valid sessionID")
+  if (database[ID].username != username) {return false;}
+  //console.log("valid username")
+  return true;
+}
+function socketValid(cookie) {
+  const username = cookie.USERNAME
+  const ID = cookie.USERID
+  const session = cookie.SESSIONTOKEN
 
   if (isNaN(ID)) {return false;}
   if (ID >= database.length) {return false;}
@@ -59,6 +81,9 @@ function checkValid(req) {
   return true;
 }
 
+
+
+//checks if form is correct with database
 function validateUser(username, password) {
   const index = findUser(username);
 
@@ -73,7 +98,7 @@ function validateUser(username, password) {
 
   return true;
 }
-
+//updates the sessiontoken in database
 function updateSession(sessiontoken, ID) {
   database[ID].session = sessiontoken
 }
@@ -89,24 +114,29 @@ app.get('/', (req, res) => {
 })
 app.get('/login', (req, res) => {
   if (checkValid(req)) {res.redirect('/home')} else {
-  res.render('pages/login')}
+  res.render('pages/login',{error: ""})}
 })
 app.get('/signup', (req, res) => {
   if (checkValid(req)) {res.redirect('/home')} else {
-  res.render('pages/signup')}
+  res.render('pages/signup',{error: ""})}
 })
 
 app.post('/signup', (req, res) => {
   if (checkValid(req)) {res.redirect('/home')}
 
-  if (findUser(req.body.username) > -1 || req.body.password1 != req.body.password2) {
-    res.redirect('/signup')
+  if (findUser(req.body.username) > -1) {
+    //console.log("wrong username")
+    res.render('pages/signup',{error: "username already taken!"})
+
+  } else if (req.body.password1 != req.body.password2) {
+    res.render('pages/signup',{error: "password wrong!"})
+
   } else {
-    console.log("username not taken ", findUser(req.body.username))
+    //console.log("username not taken ", findUser(req.body.username))
     const sessiontoken = crypto.randomUUID()
     const ID = addUser(req.body.username, req.body.password1, sessiontoken)
     res.cookie('userID', ID)
-    res.cookie('sessiontoken', sessiontoken, { signed: true })
+    res.cookie('sessiontoken', sessiontoken)
     res.cookie('username', req.body.username)
     res.redirect('/home')
   }
@@ -116,18 +146,17 @@ app.post('/login', (req, res) => {
   if (checkValid(req)) {res.redirect('/home')}
 
   const check = validateUser(req.body.username, req.body.password) 
-
+  
   if (check) {
     const sessiontoken = crypto.randomUUID()
     const ID = findUser(req.body.username)
     res.cookie('userID', ID)
-    res.cookie('sessiontoken', sessiontoken, { signed: true })
-    res.cookie('username', req.body.username)
-    updateSession(sessiontoken, ID)
+    updateSession(sessiontoken, ID);
+    res.cookie('sessiontoken',sessiontoken)
+    res.cookie('username',req.body.username)
     res.redirect('/home')
-
   } else {
-    res.redirect('/login')
+    res.render('pages/login',{error:"username or password wrong"})
   }
 
 })
@@ -151,11 +180,55 @@ app.use((req,res,next) => {
 })
 
 app.get('/home', (req, res) => {
-  res.render('pages/home')
+  res.render('pages/home',{name: req.cookies.username})
 })
 
-app.listen(port, () => {
+app.use(express.static(path.join(__dirname,'public')))
+
+
+
+io.on('connection', socket => {
+  console.log('a player has connected')
+  socket.emit('connection', io.engine.clientsCount)
+  socket.broadcast.emit('connection', io.engine.clientsCount)
+
+  socket.on('server', (form) => {
+    try {
+      if(!socketValid(form)) {
+        socket.broadcast.emit('connection', io.engine.clientsCount)
+        socket.disconnect()
+      }
+    } catch (error) {
+      console.log(error)
+      socket.broadcast.emit('connection', online)
+      socket.disconnect();
+    }
+
+    const newForm = {
+      "USERNAME":"",
+      "MSG":""
+    }
+
+    newForm.USERNAME = form.USERNAME
+    newForm.MSG = form.MSG
+
+    socket.broadcast.emit(form.ID,newForm)
+
+    console.log(form.MSG)
+
+  })
+
+
+  //emit - client
+  //broadcat.emit - everyone except client
+
+  //calls when player disconnect
+  socket.on('disconnect', () => {
+    socket.broadcast.emit('connection', io.engine.clientsCount)
+    socket.disconnect()
+  })
+});
+
+server.listen(port, () => {
   console.log(`App listening at port ${port}`)
 })
-
-
