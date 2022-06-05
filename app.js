@@ -1,17 +1,4 @@
-const express = require('express')
-const bodyparser = require('body-parser')
-const cookieParser = require('cookie-parser')
-const port = 3000
-
-const app = express()
-app.use(cookieParser('secretKey'))
-
-const http = require('http');
-const socketio = require('socket.io')
-const server = http.createServer(app);
-const io = socketio(server);
-const path = require('path')
-
+//functions ----------------------------------------------------------------------------------------------------------------------
 const fs = require('fs')
 let file = fs.readFileSync('./database.json')
 let database = JSON.parse(file)
@@ -51,9 +38,9 @@ function findUser(username) {
 }
 //checks and validates the username-,sessionid, and id-token
 function checkValid(req) {
-  const username = req.cookies.username
-  const ID = req.cookies.userID
-  const session = req.cookies.sessiontoken
+  const username = req.username
+  const ID = req.userID
+  const session = req.sessiontoken
 
   if (username === '') {return false}
   if (ID === '') {return false}
@@ -70,23 +57,6 @@ function checkValid(req) {
   //console.log("valid username")
   return true;
 }
-function socketValid(cookie) {
-  const username = cookie.USERNAME
-  const ID = cookie.USERID
-  const session = cookie.SESSIONTOKEN
-
-  if (isNaN(ID)) {return false;}
-  if (ID >= database.length) {return false;}
-  //console.log("valid ID")
-  if (typeof session === 'undefined') {return false}
-  if (database[ID].session != session) {return false;}
-  //console.log("valid sessionID")
-  if (database[ID].username != username) {return false;}
-  //console.log("valid username")
-  return true;
-}
-
-
 
 //checks if form is correct with database
 function validateUser(username, password) {
@@ -108,21 +78,33 @@ function updateSession(sessiontoken, ID) {
   database[ID].session = sessiontoken
 }
 
+//routing ----------------------------------------------------------------------------------------------------------------------
+
+const express = require('express')
+const bodyparser = require('body-parser')
+const cookieParser = require('cookie-parser')
+const port = 3000
+
+const app = express()
+app.use(cookieParser('secretKey'))
+const path = require('path')
+
+
 app.use(bodyparser.urlencoded({ extended: false }));
 app.use(bodyparser.json())
 
 app.set('view engine', 'ejs')
 
 app.get('/', (req, res) => {
-  if (checkValid(req)) {res.redirect('/home')} else {
+  if (checkValid(req.cookies)) {res.redirect('/home')} else {
   res.render('pages/index')}
 })
 app.get('/login', (req, res) => {
-  if (checkValid(req)) {res.redirect('/home')} else {
+  if (checkValid(req.cookies)) {res.redirect('/home')} else {
   res.render('pages/login',{error: ""})}
 })
 app.get('/signup', (req, res) => {
-  if (checkValid(req)) {res.redirect('/home')} else {
+  if (checkValid(req.cookies)) {res.redirect('/home')} else {
   res.render('pages/signup',{error: ""})}
 })
 
@@ -148,7 +130,7 @@ app.post('/signup', (req, res) => {
 })
 
 app.post('/login', (req, res) => {
-  if (checkValid(req)) {res.redirect('/home')}
+  if (checkValid(req.cookies)) {res.redirect('/home')}
 
   const check = validateUser(req.body.username, req.body.password) 
   
@@ -176,7 +158,7 @@ app.get('/signout', (req, res) => {
 
 
 app.use((req,res,next) => {
-  if (!checkValid(req)) {
+  if (!checkValid(req.cookies)) {
     console.log('going to signout')
     res.redirect('/signout')
   } else {
@@ -187,51 +169,21 @@ app.use((req,res,next) => {
 app.get('/home', (req, res) => {
   res.render('pages/home',{name: req.cookies.username})
 })
-
 app.use(express.static(path.join(__dirname,'public')))
 
+//web socket ----------------------------------------------------------------------------------------------------------------------
 
+const http = require('http');
+const websocket = require('ws');
+const server = http.createServer(app);
+const wss = new websocket.Server({ server });
 
-io.on('connection', socket => {
-  console.log('a player has connected')
-  socket.emit('connection', io.engine.clientsCount)
-  socket.broadcast.emit('connection', io.engine.clientsCount)
+wss.on('connection', function connection(ws) {
+  ws.on('message', function message(data) {
+    console.log('received: %s', data);
+  });
 
-  socket.on('server', (form) => {
-    try {
-      if(!socketValid(form)) {
-        socket.broadcast.emit('connection', io.engine.clientsCount)
-        socket.disconnect()
-      }
-    } catch (error) {
-      console.log(error)
-      socket.broadcast.emit('connection', online)
-      socket.disconnect();
-    }
-
-    const newForm = {
-      "USERNAME":"",
-      "MSG":""
-    }
-
-    newForm.USERNAME = form.USERNAME
-    newForm.MSG = form.MSG
-
-    socket.broadcast.emit(form.ID,newForm)
-
-    console.log(form.MSG)
-
-  })
-
-
-  //emit - client
-  //broadcat.emit - everyone except client
-
-  //calls when player disconnect
-  socket.on('disconnect', () => {
-    socket.broadcast.emit('connection', io.engine.clientsCount)
-    socket.disconnect()
-  })
+  ws.send('something');
 });
 
 server.listen(port, () => {
