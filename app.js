@@ -43,15 +43,20 @@ function findUser(username) {
   return -1;
 }
 
-function checkValid(ID, session) {
-  if (ID >= database.length) {
-    return false;
-  }
+function checkValid(req) {
+  const username = req.cookies.username
+  const ID = req.cookies.userID
+  const session = req.signedCookies.sessiontoken
 
-  if (database[ID].session == session) {
-    return true;
-  }
-  return false;
+  if (isNaN(ID)) {return false;}
+  if (ID >= database.length) {return false;}
+  //console.log("valid ID")
+  if (typeof session === 'undefined') {return false}
+  if (database[ID].session != session) {return false;}
+  //console.log("valid sessionID")
+  if (database[ID].username != username) {return false;}
+  //console.log("valid username")
+  return true;
 }
 
 function validateUser(username, password) {
@@ -60,14 +65,17 @@ function validateUser(username, password) {
   if (index == -1) {
     return false;
   }
-  console.log(index)
   const pass = database[index].password;
-  const match = bcryptSync.compare(password, pass)
+  const match = bcrypt.compareSync(password, pass)
   if (!match) {
     return false;
   }
 
   return true;
+}
+
+function updateSession(sessiontoken, ID) {
+  database[ID].session = sessiontoken
 }
 
 app.use(bodyparser.urlencoded({ extended: false }));
@@ -76,53 +84,75 @@ app.use(bodyparser.json())
 app.set('view engine', 'ejs')
 
 app.get('/', (req, res) => {
-  res.render('pages/index')
+  if (checkValid(req)) {res.redirect('/home')} else {
+  res.render('pages/index')}
 })
-
 app.get('/login', (req, res) => {
-  res.render('pages/login')
+  if (checkValid(req)) {res.redirect('/home')} else {
+  res.render('pages/login')}
 })
-
 app.get('/signup', (req, res) => {
-  res.render('pages/signup')
+  if (checkValid(req)) {res.redirect('/home')} else {
+  res.render('pages/signup')}
 })
-
-
-
 
 app.post('/signup', (req, res) => {
+  if (checkValid(req)) {res.redirect('/home')}
 
-  if (findUser(req.body.username) == -1 || req.body.password1 != req.body.password2) {
-    res.redirect('/')
+  if (findUser(req.body.username) > -1 || req.body.password1 != req.body.password2) {
+    res.redirect('/signup')
   } else {
+    console.log("username not taken ", findUser(req.body.username))
     const sessiontoken = crypto.randomUUID()
-    //resolve promimse
-
     const ID = addUser(req.body.username, req.body.password1, sessiontoken)
-
     res.cookie('userID', ID)
     res.cookie('sessiontoken', sessiontoken, { signed: true })
     res.cookie('username', req.body.username)
-
-
     res.redirect('/home')
   }
 })
 
 app.post('/login', (req, res) => {
-
-  console.log(database)
+  if (checkValid(req)) {res.redirect('/home')}
 
   const check = validateUser(req.body.username, req.body.password) 
 
   if (check) {
+    const sessiontoken = crypto.randomUUID()
+    const ID = findUser(req.body.username)
+    res.cookie('userID', ID)
+    res.cookie('sessiontoken', sessiontoken, { signed: true })
+    res.cookie('username', req.body.username)
+    updateSession(sessiontoken, ID)
     res.redirect('/home')
+
   } else {
-    res.redirect('/')
+    res.redirect('/login')
   }
 
 })
 
+app.get('/signout', (req, res) => {
+  console.log("logging out")
+  res.cookie('userID', "", { signed: true })
+  res.cookie('sessiontoken', "")
+  res.cookie('username', "")
+  res.redirect('/')
+})
+
+
+app.use((req,res,next) => {
+  if (!checkValid(req)) {
+    console.log('going to signout')
+    res.redirect('/signout')
+  } else {
+    next()
+  }
+})
+
+app.get('/home', (req, res) => {
+  res.render('pages/home')
+})
 
 app.listen(port, () => {
   console.log(`App listening at port ${port}`)
