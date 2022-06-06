@@ -8,6 +8,7 @@ Created by nasope and slantiz
 - body-parser
 - cookie-parser
 - crypto
+- ejs
 - express
 - ws
 - nodemon (dev dependency)
