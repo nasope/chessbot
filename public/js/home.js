@@ -16,6 +16,12 @@ function createMSG(name, message) {
     p2.innerHTML = d.getHours() + ":" + d.getMinutes() + ":" + d.getSeconds()
     p3.innerHTML = msg
 
+    if (name == "server") {
+        div.setAttribute("style", "border:1px; border-style:solid; border-color:#FF0000;padding:10px")
+    } else {
+        div.setAttribute("style", "border:1px; border-style:solid; border-color:#000000;padding:10px")
+    }
+
     div.appendChild(p1)
     div.appendChild(p2)
     div.appendChild(p3)
@@ -36,11 +42,11 @@ ws.binaryType = "blob";
 ws.addEventListener("open", event => {
     ws.send(JSON.stringify(cookie));
     console.log("Websocket connection opened");
-    createMSG("Server", "Websocket connection opened")
+    createMSG("server", "Websocket connection opened")
 });
 ws.addEventListener("close", event => {
     console.log("Websocket connection closed");
-    createMSG("Server", "Server disconnected")
+    createMSG("server", "Server disconnected")
 });
 
 ws.onmessage = function (meta) {
@@ -48,17 +54,18 @@ ws.onmessage = function (meta) {
     createMSG(data.username, data.message);
 }
 
-addEventListener('submit', (event) => {
-    event.preventDefault();
-    const message = document.getElementById('message').value;
-
-    const data = {
+//send msg
+send = document.getElementById("send").addEventListener("click", sendMessage);
+function sendMessage(e) {
+    e.preventDefault();
+    const message = document.getElementById("message").value;
+    if (message == "") { return; }
+    ws.send(JSON.stringify({
         "type": "message",
         "message": message
-    }
-    
-    ws.send(JSON.stringify(data));
-    document.getElementById('message').value = ''
+    }));
+    document.getElementById("message").value = "";
     createMSG(cookie.username, message)
-})
+}
+
 

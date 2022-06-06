@@ -39,21 +39,14 @@ function checkValid(req) {
   const ID = req.userID
   const session = req.sessiontoken
 
-  if (username === '') { return false }
-  if (ID === '') { return false }
-  if (session === '') { return false }
-
-  //console.log(username+" "+ID+" "+session);
-  if (isNaN(ID)) { return false; }
-  if (ID >= database.length) { return false; }
-  //console.log("valid ID")
-  if (typeof session === 'undefined') { return false }
-  if (database[ID].session != session) { return false; }
-  //console.log("valid sessionID")
-  if (typeof username == 'undefined') { return false; }
-  if (database[ID].username != username) { return false; }
-  //console.log("valid username")
-  return true;
+  try {
+    if (ID >= database.length) { return false; }
+    if (database[ID].session != session) { return false; }
+    if (database[ID].username != username) { return false; }
+    return true;
+  } catch (error) {
+    return false;
+  }
 }
 
 //checks if form is correct with database
@@ -173,6 +166,11 @@ app.use((req, res, next) => {
 app.get('/home', (req, res) => {
   res.render('pages/home', { name: req.cookies.username })
 })
+
+app.get('/matchMaking', (req, res) => {
+  res.render('pages/matchMaking', { name: req.cookies.username })
+})
+
 app.use(express.static(path.join(__dirname, 'public')))
 
 //web socket ----------------------------------------------------------------------------------------------------------------------
@@ -190,58 +188,79 @@ wss.on('connection', function connection(ws) {
 
 
   ws.on('message', function message(str) {
-    if (!hasdata) {
-      const _data = JSON.parse(str);
-      if (!checkValid(_data)) {
-        ws.close();
-      } else {
-        userdata = _data;
-        userdata['playing'] = false;
-        hasdata = true;
+    try {
+      if (!hasdata) {
+        const _data = JSON.parse(str);
+        if (!checkValid(_data)) {
+          ws.close();
+        } else {
+          userdata = _data;
+          userdata['playing'] = false;
+          hasdata = true;
+
+          const meta = {
+            "type": 'status',
+            "username": "server",
+            "message": userdata.username + " has joined the chat"
+          }
+          wss.clients.forEach(function each(client) {
+            if (client !== ws && client.readyState === WS_MODULE.OPEN) {
+              client.send(JSON.stringify(meta));
+            }
+          });
+
+          return
+        }
+      }
+
+      const data = JSON.parse(str);
+
+      if (data.type == "message") {
 
         const meta = {
-          "username": "server",
-          "message": userdata.username + " has joined the chat"
+          "type": "message",
+          "username": userdata.username,
+          "message": data.message
         }
         wss.clients.forEach(function each(client) {
           if (client !== ws && client.readyState === WS_MODULE.OPEN) {
             client.send(JSON.stringify(meta));
           }
         });
-
-        return
       }
-    }
 
-    const data = JSON.parse(str);
-
-    if (data.type == "message") {
-
-      const meta = {
-        "username": userdata.username,
-        "message": data.message
-      }
-      wss.clients.forEach(function each(client) {
-        if (client !== ws && client.readyState === WS_MODULE.OPEN) {
-          client.send(JSON.stringify(meta));
+      if (userdata.playing) {
+        const meta = {
+          "type": "message",
+          "username": "server",
+          "message": "you are already playing"
         }
-      });
+        ws.send(JSON.stringify(meta));
+
+      } else if (data.type == "create" && !userdata.playing) {
+
+        const id = crypto.randomUUID( )
+
+        const meta = {
+          "type": "message",
+          "username": "server",
+          "message": "a room has been created at: " + id
+        }
+        ws.send(JSON.stringify(meta));
+        userdata.playing = true;
+        console.log("a player has started a game")
+      }
+    } catch (error) {
+      console.log(error);
+      ws.send(JSON.stringify({"type": "status", "username": "server", "message": "error" }));
     }
-
-    if (data.type == "create" && !userdata.playing) {
-      userdata.playing = true;
-      console.log("a player has started a game")
-
-
-
-    }
-
   });
 
   ws.on('close', function close() {
     console.log('Client disconnected');
 
     const meta = {
+      "type": "message",
       "username": "server",
       "message": userdata.username + " has left the chat"
     }

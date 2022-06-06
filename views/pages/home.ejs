@@ -1,5 +1,4 @@
 <h1> welcome back <%=name%>!</h1>
-<script src="js/chat.js"></script>
 <a href="/signout">signout</a>
 <a href="/matchMaking">match making</a>
 
@@ -10,11 +9,11 @@
 
     </div>
 
-    <form autocomplete="off">
+    <form autocomplete="off" id="send">
         <input id="message" type="text" placeholder="enter message">
-        <input type="submit">
+        <button type="submit">send</button>
       </form>
-
-      <p></p>
 </div>
+
+<script src="js/home.js"></script>
 
