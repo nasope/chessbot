@@ -10,13 +10,10 @@ const crypto = require('crypto')
 function addUser(username, password, cookie) {
 
   const user = {
-    "username": "",
-    "password": "",
-    "session": ""
+    "username": username,
+    "session": cookie,
+    "password": bcrypt.hashSync(password,10)
   };
-user.username = username
-user.session = cookie
-user.password = bcrypt.hashSync(password,10);
 
 database.push(user);
 const jsoned = JSON.stringify(database);
@@ -53,6 +50,7 @@ function checkValid(req) {
   if (typeof session === 'undefined') {return false}
   if (database[ID].session != session) {return false;}
   //console.log("valid sessionID")
+  if (typeof username == 'undefined') {return false;}
   if (database[ID].username != username) {return false;}
   //console.log("valid username")
   return true;
@@ -76,6 +74,8 @@ function validateUser(username, password) {
 //updates the sessiontoken in database
 function updateSession(sessiontoken, ID) {
   database[ID].session = sessiontoken
+  const jsoned = JSON.stringify(database);
+  fs.writeFileSync('database.json', jsoned);
 }
 
 //routing ----------------------------------------------------------------------------------------------------------------------
@@ -150,7 +150,7 @@ app.post('/login', (req, res) => {
 
 app.get('/signout', (req, res) => {
   console.log("logging out")
-  res.cookie('userID', "", { signed: true })
+  res.cookie('userID', "")
   res.cookie('sessiontoken', "")
   res.cookie('username', "")
   res.redirect('/')
@@ -159,6 +159,7 @@ app.get('/signout', (req, res) => {
 
 app.use((req,res,next) => {
   if (!checkValid(req.cookies)) {
+
     console.log('going to signout')
     res.redirect('/signout')
   } else {
@@ -173,17 +174,69 @@ app.use(express.static(path.join(__dirname,'public')))
 
 //web socket ----------------------------------------------------------------------------------------------------------------------
 
-const http = require('http');
-const websocket = require('ws');
+const WS_MODULE = require("ws");
+const http = require("http");
+
 const server = http.createServer(app);
-const wss = new websocket.Server({ server });
+let wss = new WS_MODULE.Server({ server });
 
 wss.on('connection', function connection(ws) {
-  ws.on('message', function message(data) {
-    console.log('received: %s', data);
+  console.log('Client connected');
+  let hasdata = false;
+  let userdata = {};
+
+
+  ws.on('message', function message(str) {
+    if (!hasdata) {
+      const _data = JSON.parse(str);
+      if (!checkValid(_data)) {
+        ws.close();
+      } else {
+        userdata = _data;
+        hasdata = true;
+
+        const meta = {
+          "username": "server",
+          "message": userdata.username+" has joined the chat"
+        }
+        wss.clients.forEach(function each(client) {
+          if (client !== ws && client.readyState === WS_MODULE.OPEN) {
+            client.send(JSON.stringify(meta));
+          }
+        });
+
+        return
+      }
+    }
+
+    const data = JSON.parse(str);
+
+    const meta = {
+      "username": userdata.username,
+      "message": data.message
+    }
+
+    wss.clients.forEach(function each(client) {
+      if (client !== ws && client.readyState === WS_MODULE.OPEN) {
+        client.send(JSON.stringify(meta));
+      }
+    });
   });
 
-  ws.send('something');
+  ws.on('close', function close() {
+    console.log('Client disconnected');
+
+    const meta = {
+      "username": "server",
+      "message": userdata.username+" has left the chat"
+    }
+    wss.clients.forEach(function each(client) {
+      if (client !== ws && client.readyState === WS_MODULE.OPEN) {
+        client.send(JSON.stringify(meta));
+      }
+    });
+
+  });
 });
 
 server.listen(port, () => {
