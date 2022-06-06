@@ -12,14 +12,14 @@ function addUser(username, password, cookie) {
   const user = {
     "username": username,
     "session": cookie,
-    "password": bcrypt.hashSync(password,10)
+    "password": bcrypt.hashSync(password, 10)
   };
 
-database.push(user);
-const jsoned = JSON.stringify(database);
+  database.push(user);
+  const jsoned = JSON.stringify(database);
 
-fs.writeFileSync('database.json', jsoned);
-return (database.length - 1)
+  fs.writeFileSync('database.json', jsoned);
+  return (database.length - 1)
 
 };
 //find username in database, if it exists return index(ID), if not, -1
@@ -39,19 +39,19 @@ function checkValid(req) {
   const ID = req.userID
   const session = req.sessiontoken
 
-  if (username === '') {return false}
-  if (ID === '') {return false}
-  if (session === '') {return false}
+  if (username === '') { return false }
+  if (ID === '') { return false }
+  if (session === '') { return false }
 
   //console.log(username+" "+ID+" "+session);
-  if (isNaN(ID)) {return false;}
-  if (ID >= database.length) {return false;}
+  if (isNaN(ID)) { return false; }
+  if (ID >= database.length) { return false; }
   //console.log("valid ID")
-  if (typeof session === 'undefined') {return false}
-  if (database[ID].session != session) {return false;}
+  if (typeof session === 'undefined') { return false }
+  if (database[ID].session != session) { return false; }
   //console.log("valid sessionID")
-  if (typeof username == 'undefined') {return false;}
-  if (database[ID].username != username) {return false;}
+  if (typeof username == 'undefined') { return false; }
+  if (database[ID].username != username) { return false; }
   //console.log("valid username")
   return true;
 }
@@ -96,27 +96,30 @@ app.use(bodyparser.json())
 app.set('view engine', 'ejs')
 
 app.get('/', (req, res) => {
-  if (checkValid(req.cookies)) {res.redirect('/home')} else {
-  res.render('pages/index')}
+  if (checkValid(req.cookies)) { res.redirect('/home') } else {
+    res.render('pages/index')
+  }
 })
 app.get('/login', (req, res) => {
-  if (checkValid(req.cookies)) {res.redirect('/home')} else {
-  res.render('pages/login',{error: ""})}
+  if (checkValid(req.cookies)) { res.redirect('/home') } else {
+    res.render('pages/login', { error: "" })
+  }
 })
 app.get('/signup', (req, res) => {
-  if (checkValid(req.cookies)) {res.redirect('/home')} else {
-  res.render('pages/signup',{error: ""})}
+  if (checkValid(req.cookies)) { res.redirect('/home') } else {
+    res.render('pages/signup', { error: "" })
+  }
 })
 
 app.post('/signup', (req, res) => {
-  if (checkValid(req)) {res.redirect('/home')}
+  if (checkValid(req)) { res.redirect('/home') }
 
   if (findUser(req.body.username) > -1) {
     //console.log("wrong username")
-    res.render('pages/signup',{error: "username already taken!"})
+    res.render('pages/signup', { error: "username already taken!" })
 
   } else if (req.body.password1 != req.body.password2) {
-    res.render('pages/signup',{error: "password wrong!"})
+    res.render('pages/signup', { error: "password wrong!" })
 
   } else {
     //console.log("username not taken ", findUser(req.body.username))
@@ -130,20 +133,20 @@ app.post('/signup', (req, res) => {
 })
 
 app.post('/login', (req, res) => {
-  if (checkValid(req.cookies)) {res.redirect('/home')}
+  if (checkValid(req.cookies)) { res.redirect('/home') }
 
-  const check = validateUser(req.body.username, req.body.password) 
-  
+  const check = validateUser(req.body.username, req.body.password)
+
   if (check) {
     const sessiontoken = crypto.randomUUID()
     const ID = findUser(req.body.username)
     res.cookie('userID', ID)
     updateSession(sessiontoken, ID);
-    res.cookie('sessiontoken',sessiontoken)
-    res.cookie('username',req.body.username)
+    res.cookie('sessiontoken', sessiontoken)
+    res.cookie('username', req.body.username)
     res.redirect('/home')
   } else {
-    res.render('pages/login',{error:"username or password wrong"})
+    res.render('pages/login', { error: "username or password wrong" })
   }
 
 })
@@ -157,7 +160,7 @@ app.get('/signout', (req, res) => {
 })
 
 
-app.use((req,res,next) => {
+app.use((req, res, next) => {
   if (!checkValid(req.cookies)) {
 
     console.log('going to signout')
@@ -168,9 +171,9 @@ app.use((req,res,next) => {
 })
 
 app.get('/home', (req, res) => {
-  res.render('pages/home',{name: req.cookies.username})
+  res.render('pages/home', { name: req.cookies.username })
 })
-app.use(express.static(path.join(__dirname,'public')))
+app.use(express.static(path.join(__dirname, 'public')))
 
 //web socket ----------------------------------------------------------------------------------------------------------------------
 
@@ -193,11 +196,12 @@ wss.on('connection', function connection(ws) {
         ws.close();
       } else {
         userdata = _data;
+        userdata['playing'] = false;
         hasdata = true;
 
         const meta = {
           "username": "server",
-          "message": userdata.username+" has joined the chat"
+          "message": userdata.username + " has joined the chat"
         }
         wss.clients.forEach(function each(client) {
           if (client !== ws && client.readyState === WS_MODULE.OPEN) {
@@ -211,16 +215,27 @@ wss.on('connection', function connection(ws) {
 
     const data = JSON.parse(str);
 
-    const meta = {
-      "username": userdata.username,
-      "message": data.message
+    if (data.type == "message") {
+
+      const meta = {
+        "username": userdata.username,
+        "message": data.message
+      }
+      wss.clients.forEach(function each(client) {
+        if (client !== ws && client.readyState === WS_MODULE.OPEN) {
+          client.send(JSON.stringify(meta));
+        }
+      });
     }
 
-    wss.clients.forEach(function each(client) {
-      if (client !== ws && client.readyState === WS_MODULE.OPEN) {
-        client.send(JSON.stringify(meta));
-      }
-    });
+    if (data.type == "create" && !userdata.playing) {
+      userdata.playing = true;
+      console.log("a player has started a game")
+
+
+
+    }
+
   });
 
   ws.on('close', function close() {
@@ -228,14 +243,13 @@ wss.on('connection', function connection(ws) {
 
     const meta = {
       "username": "server",
-      "message": userdata.username+" has left the chat"
+      "message": userdata.username + " has left the chat"
     }
     wss.clients.forEach(function each(client) {
       if (client !== ws && client.readyState === WS_MODULE.OPEN) {
         client.send(JSON.stringify(meta));
       }
     });
-
   });
 });
 
