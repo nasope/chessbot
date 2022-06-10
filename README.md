@@ -1,7 +1,10 @@
 # Online chess website
-Created as a summer project
+Created as a summer project.
 ### Credits
-Created by nasope and slantiz
+Created by nasope and slantiz.
+
+### Setup
+Run `npm install` in the root directory.
 
 ### Dependencies
 - bcrypt
