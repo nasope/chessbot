@@ -1,4 +1,2 @@
-/node_modules
-aupp.js
-test.js
-database.json
+node_modules/
+.package-lock.json
