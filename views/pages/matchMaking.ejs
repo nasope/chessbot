@@ -2,24 +2,20 @@
 <a href="/signout">signout</a>
 <a href="/home">home</a>
 
-<div id="chat">
-    <h1>Global chat</h1>
-
-    <div id="messages">
-
-    </div>
-</div>
-
 <div id="match">
-  <button id="create" type="submit">create room</button>
+  
+  <form id="copyable">
+    <button id="create" type="submit">create room</button>
+    <p id="gameCode"></p>
+  </form>
 
-  <form autocomplete="off" id="join">
+
+  <form autocomplete="off">
     <input id="room" type="text" placeholder="enter room name">
-    <button type="submit">join room</button>
+    <button type="submit" id="join">join room</button>
   </form>
 
 </div>
 
 
-<script src="js/matchMaking.js"></script>
-
+<script src="js/websocket.js"></script>

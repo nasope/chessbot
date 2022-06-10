@@ -1,4 +1,4 @@
-//functions ----------------------------------------------------------------------------------------------------------------------
+//database ----------------------------------------------------------------------------------------------------------------------
 const fs = require('fs')
 let file = fs.readFileSync('./database.json')
 let database = JSON.parse(file)
@@ -12,7 +12,11 @@ function addUser(username, password, cookie) {
   const user = {
     "username": username,
     "session": cookie,
-    "password": bcrypt.hashSync(password, 10)
+    "password": bcrypt.hashSync(password, 10),
+    "wins": 0,
+    "losses": 0,
+    "ties": 0,
+    "rating": 1000
   };
 
   database.push(user);
@@ -22,6 +26,24 @@ function addUser(username, password, cookie) {
   return (database.length - 1)
 
 };
+
+//change the rating of a player in the database
+//win = 1 win, loss = -1 loss, tie = 0
+function changeRating(ID, rating, win) {
+  database[ID].rating += rating;
+
+  if (win == 1) {
+    database[ID].wins++;
+  } else if (win == -1) {
+    database[ID].losses++;
+  } else if (win == 0) {
+    database[ID].ties++;
+  }
+
+  const jsoned = JSON.stringify(database);
+  fs.writeFileSync('database.json', jsoned);
+}
+
 //find username in database, if it exists return index(ID), if not, -1
 function findUser(username) {
 
@@ -33,7 +55,7 @@ function findUser(username) {
   }
   return -1;
 }
-//checks and validates the username-,sessionid, and id-token
+//checks and validates the username, sessionid, and id
 function checkValid(req) {
   const username = req.username
   const ID = req.userID
@@ -103,7 +125,6 @@ app.get('/signup', (req, res) => {
     res.render('pages/signup', { error: "" })
   }
 })
-
 app.post('/signup', (req, res) => {
   if (checkValid(req)) { res.redirect('/home') }
 
@@ -124,7 +145,6 @@ app.post('/signup', (req, res) => {
     res.redirect('/home')
   }
 })
-
 app.post('/login', (req, res) => {
   if (checkValid(req.cookies)) { res.redirect('/home') }
 
@@ -143,32 +163,35 @@ app.post('/login', (req, res) => {
   }
 
 })
-
 app.get('/signout', (req, res) => {
-  console.log("logging out")
+  //console.log("logging out")
   res.cookie('userID', "")
   res.cookie('sessiontoken', "")
   res.cookie('username', "")
   res.redirect('/')
 })
-
-
 app.use((req, res, next) => {
   if (!checkValid(req.cookies)) {
 
-    console.log('going to signout')
+    //console.log('going to signout')
     res.redirect('/signout')
   } else {
     next()
   }
 })
-
 app.get('/home', (req, res) => {
   res.render('pages/home', { name: req.cookies.username })
 })
-
 app.get('/matchMaking', (req, res) => {
   res.render('pages/matchMaking', { name: req.cookies.username })
+})
+
+app.get('/chess', (req, res) => {
+  if (!checkInRoom(parseInt(req.cookies.userID))) {
+    res.redirect('/matchMaking')
+  } else {
+    res.render('pages/chess')
+  }
 })
 
 app.use(express.static(path.join(__dirname, 'public')))
@@ -178,29 +201,112 @@ app.use(express.static(path.join(__dirname, 'public')))
 const WS_MODULE = require("ws");
 const http = require("http");
 
+
+//games[gameID] = {id1, id2, spectators, time1, time2, starttime, chessboard}
+let games = new Map();
+//clients[id] = WS
+let clients = new Map();
+
+//currentlyPlaying[id] = gameID
+let currentlyPlaying = new Map();
+
+getRoom = gameID => {
+  return games.get(gameID);
+}
+
+createRoom = (ID, spectate, public) => {
+  const gameID = crypto.randomUUID()
+
+  games.set(gameID, {
+    "spectate": spectate,
+    "public": public,
+    "id1": ID,
+    "id2": null,
+    "spectators": [],
+    "time1": 0,
+    "time2": 0,
+    "starttime": 0,
+    "chessboard": null
+  })
+  return gameID;
+}
+
+checkRoomStarted = (gameID) => {
+
+  if (games.get(gameID).id2 != null) {
+    return true;
+  }
+  return false;
+}
+
+joinRoomAsPlayer = (ID, gameID) => {
+
+  if (!games.has(gameID)) { return false; }
+  if (games.get(gameID).id2 == null) {
+    games.get(gameID).id2 = ID
+
+    return true
+  }
+  return false
+}
+
+joinRoomAsSpectator = (ID, gameID) => {
+  games.get(gameID).spectators.push(ID)
+}
+
+addClient = (ID, WS) => { clients.set(ID, WS) }
+removeClient = ID => { clients.delete(ID) }
+getClient = ID => { return clients.get(ID) }
+hasClient = ID => { return clients.has(ID) }
+
+checkInRoom = (ID) => {
+
+  //console.log(ID)
+
+  if (currentlyPlaying.has(ID)) {
+    if (currentlyPlaying[ID] != "") {
+      return true
+    }
+  }
+  return false;
+}
+
+changeInRoom = (ID, gameID) => {
+  currentlyPlaying.set(ID, gameID)
+}
+
+getInRoom = (ID) => {
+  return currentlyPlaying.get(ID)
+}
+
 const server = http.createServer(app);
 let wss = new WS_MODULE.Server({ server });
 
 wss.on('connection', function connection(ws) {
-  console.log('Client connected');
+
+  //console.log('Client connected');
   let hasdata = false;
   let userdata = {};
 
-
+  //when a client sends 
+  //trycatch to prevent crashing the server from invalid data
   ws.on('message', function message(str) {
     try {
+      //validate the connection
       if (!hasdata) {
         const _data = JSON.parse(str);
         if (!checkValid(_data)) {
           ws.close();
         } else {
+
           userdata = _data;
-          userdata['playing'] = false;
+          userdata.userID = parseInt(userdata.userID);
+
           hasdata = true;
+          addClient(userdata.userID, ws);
 
           const meta = {
-            "type": 'status',
-            "username": "server",
+            "type": "status",
             "message": userdata.username + " has joined the chat"
           }
           wss.clients.forEach(function each(client) {
@@ -209,12 +315,28 @@ wss.on('connection', function connection(ws) {
             }
           });
 
+          //if the user is in a room, send them the room info
+          if (checkInRoom(userdata.userID)) {
+
+            if (!checkRoomStarted(getInRoom(userdata.userID))) {
+              ws.send(JSON.stringify({
+                "type": "create",
+                "message": getInRoom(userdata.userID)
+              }))
+            } else {
+              //console.log("redirect to chessboard")
+              ws.send(JSON.stringify({
+                "type": "redirect",
+                "message":"chess"
+              }))
+            }
+          }
           return
         }
       }
-
       const data = JSON.parse(str);
 
+      //if the client want to send a message
       if (data.type == "message") {
 
         const meta = {
@@ -228,40 +350,73 @@ wss.on('connection', function connection(ws) {
           }
         });
       }
-
-      if (userdata.playing) {
-        const meta = {
-          "type": "message",
-          "username": "server",
-          "message": "you are already playing"
+      //if the client want to create a room
+      else if (data.type == "create") {
+        if (checkInRoom(userdata.userID)) {
+          const meta = {
+            "type": "status",
+            "message": "You are already in a room " + getInRoom(userdata.ID)
+          }
+          ws.send(JSON.stringify(meta));
+        } else {
+          const meta = {
+            "type": "create",
+            "message": createRoom(userdata.userID, data.spectate, data.public)
+          }
+          changeInRoom(userdata.userID, meta.message)
+          ws.send(JSON.stringify(meta));
         }
-        ws.send(JSON.stringify(meta));
-
-      } else if (data.type == "create" && !userdata.playing) {
-
-        const id = crypto.randomUUID( )
-
-        const meta = {
-          "type": "message",
-          "username": "server",
-          "message": "a room has been created at: " + id
-        }
-        ws.send(JSON.stringify(meta));
-        userdata.playing = true;
-        console.log("a player has started a game")
       }
+      else if (data.type = "join") {
+        if (checkInRoom(userdata.userID)) {
+          const meta = {
+            "type": "status",
+            "message": "You are already in a room " + getInRoom(userdata.userID)
+          }
+          ws.send(JSON.stringify(meta));
+        } else {
+
+          if (joinRoomAsPlayer(userdata.userID, data.message)) {
+            const meta = {
+              "type": "redirect",
+              "message": "chess"
+            }
+            //console.log("redirecting")
+            changeInRoom(userdata.userID, data.message)
+            ws.send(JSON.stringify(meta));
+
+            console.log("redirecting")
+
+            const opponent = getRoom(getInRoom(userdata.userID)).id1
+            getClient(opponent).send(JSON.stringify({
+              "type": "redirect",
+              "message": "chess"
+            }))
+
+          } else {
+            //console.log("failed redirecting")
+            const meta = {
+              "type": "status",
+              "message": "Room does not exist or is full"
+            }
+            ws.send(JSON.stringify(meta));
+          }
+        }
+      }
+
+      //when the client sends invalid data
     } catch (error) {
-      console.log(error);
-      ws.send(JSON.stringify({"type": "status", "username": "server", "message": "error" }));
+      ws.send(JSON.stringify({ "type": "status", "message": "fatal error" }));
+      //console.log(error)
+      ws.close();
     }
   });
 
   ws.on('close', function close() {
-    console.log('Client disconnected');
-
+    //console.log('Client disconnected');
+    removeClient(userdata.userID);
     const meta = {
-      "type": "message",
-      "username": "server",
+      "type": "status",
       "message": userdata.username + " has left the chat"
     }
     wss.clients.forEach(function each(client) {
