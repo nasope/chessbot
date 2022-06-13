@@ -62,34 +62,27 @@ ws.addEventListener("close", event => {
     location.reload();
 });
 
+//uncomment to enable function (input)
 ws.onmessage = function (meta) {
     const data = JSON.parse(meta.data);
 
-    if (data.type == "message") {
-        createMSG(data.username, data.message)
-    } else if (data.type == "playercount") {
-        updateCounter(data.count)
-    } else if (data.type == "create") {
-        create(data.message,Event)
-    } else if (data.type == "start") {
-        startGame(data.board, data.time, data.opponent)
-    } else if (data.type == "end") {
-        endGame(data.result)
-    } else if (data.type == "move") {
-        move(data.move, data.time)
-    } else if (data.type == "rooms") {
-        rooms(data.rooms)
-    } else if (data.type == "status") {
-        console.log(data.message)
-    } else if (data.type == "redirect") {
-        window.location.href = data.message 
-    }
+    // if (data.type == "message") {createMSG(data.username, data.message)} 
+    // if (data.type == "playercount") {updateCounter(data.count)} 
+     if (data.type == "create") {create(data.message,Event)} 
+    // if (data.type == "start") {startGame(data.board, data.time, data.opponent)} 
+    // if (data.type == "end") {endGame(data.result)} 
+    // if (data.type == "move") {move(data.move, data.time)} 
+     if (data.type == "rooms") {rooms(data.rooms)} 
+    
+    if (data.type == "status") {console.log(data.message)} 
+    if (data.type == "redirect") {window.location.href = data.message}
 }
 
-//send msg
-//const _send = document.getElementById("send").addEventListener("click", sendMessage);
-const _create = document.getElementById("create").addEventListener("click", sendCreateGame);
-const _join = document.getElementById("join").addEventListener("click", joinGame);
+//uncomment to enable function (output)
+
+//document.getElementById("send").addEventListener("click", sendMessage);
+document.getElementById("create").addEventListener("click", sendCreateGame);
+document.getElementById("join").addEventListener("click", joinGame);
 
 function joinGame(e) {
     e.preventDefault();
@@ -130,5 +123,6 @@ function sendMessage(e) {
     document.getElementById("message").value = "";
     createMSG(cookie.username, message)
 }
+
 
 

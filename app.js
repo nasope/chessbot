@@ -1,10 +1,17 @@
+import { createRequire } from "module";
+const require = createRequire(import.meta.url);
+
 //database ----------------------------------------------------------------------------------------------------------------------
 const fs = require('fs')
+//import fs from 'fs'
 let file = fs.readFileSync('./database.json')
 let database = JSON.parse(file)
 
 const bcrypt = require('bcrypt')
+//import bcrypt from 'bcrypt'
+
 const crypto = require('crypto')
+//import crypto from 'crypto'
 
 //adds userinfo into the database stored in json
 function addUser(username, password, cookie) {
@@ -100,9 +107,15 @@ const bodyparser = require('body-parser')
 const cookieParser = require('cookie-parser')
 const port = 3000
 
+// import express from 'express'
+// import bodyparser from 'body-parser'
+// import cookieParser from 'cookie-parser'
+
+
 const app = express()
 app.use(cookieParser('secretKey'))
 const path = require('path')
+//import path from 'path'
 
 
 app.use(bodyparser.urlencoded({ extended: false }));
@@ -188,11 +201,18 @@ app.get('/matchMaking', (req, res) => {
 
 app.get('/chess', (req, res) => {
   if (!checkInRoom(parseInt(req.cookies.userID))) {
-    res.redirect('/matchMaking')
+    console.log("not in room")
+  res.redirect('/matchMaking')
   } else {
-    res.render('pages/chess')
+    console.log("in redirect")
+  res.render('pages/chess')
   }
 })
+
+import { fileURLToPath } from 'url';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 
 app.use(express.static(path.join(__dirname, 'public')))
 
@@ -200,7 +220,9 @@ app.use(express.static(path.join(__dirname, 'public')))
 
 const WS_MODULE = require("ws");
 const http = require("http");
-
+//import WS_MODULE from 'ws'
+//import http from 'http'
+import { Chess } from 'chess.js'
 
 //games[gameID] = {id1, id2, spectators, time1, time2, starttime, chessboard}
 let games = new Map();
@@ -210,59 +232,79 @@ let clients = new Map();
 //currentlyPlaying[id] = gameID
 let currentlyPlaying = new Map();
 
-getRoom = gameID => {
+
+function getRoom(gameID) {
   return games.get(gameID);
 }
 
-createRoom = (ID, spectate, public) => {
+function createRoom(ID, spectate, public1) {
   const gameID = crypto.randomUUID()
 
   games.set(gameID, {
     "spectate": spectate,
-    "public": public,
+    "public": public1,
     "id1": ID,
     "id2": null,
     "spectators": [],
     "time1": 0,
     "time2": 0,
     "starttime": 0,
-    "chessboard": null
+    "chess": null
   })
   return gameID;
 }
 
-checkRoomStarted = (gameID) => {
+function checkSide(ID, gameID) {
+  const room = getRoom(gameID);
+  if (room.id1 == ID) {
+    return "w";
+  } else if (room.id2 == ID) {
+    return "b";
+  } else {
+    return "spectator";
+  }
+}
 
+function checkRoomStarted(gameID) {
   if (games.get(gameID).id2 != null) {
     return true;
   }
   return false;
 }
-
-joinRoomAsPlayer = (ID, gameID) => {
-
+function joinRoomAsPlayer(ID, gameID) {
   if (!games.has(gameID)) { return false; }
   if (games.get(gameID).id2 == null) {
     games.get(gameID).id2 = ID
-
+    games.get(gameID).chess = new Chess();
+    console.log(games.get(gameID).chess.fen())
     return true
   }
+
+
   return false
 }
 
-joinRoomAsSpectator = (ID, gameID) => {
+function joinRoomAsSpectator(ID, gameID) {
   games.get(gameID).spectators.push(ID)
 }
 
-addClient = (ID, WS) => { clients.set(ID, WS) }
-removeClient = ID => { clients.delete(ID) }
-getClient = ID => { return clients.get(ID) }
-hasClient = ID => { return clients.has(ID) }
+function addClient(ID, WS) {
+  clients.set(ID, WS)
+}
 
-checkInRoom = (ID) => {
+function removeClient(ID) {
+  clients.delete(ID)
+}
 
-  //console.log(ID)
+function getClient(ID) {
+  return clients.get(ID)
+}
 
+function hasClient(ID) {
+  return clients.has(ID)
+}
+
+function checkInRoom(ID) {
   if (currentlyPlaying.has(ID)) {
     if (currentlyPlaying[ID] != "") {
       return true
@@ -270,12 +312,11 @@ checkInRoom = (ID) => {
   }
   return false;
 }
-
-changeInRoom = (ID, gameID) => {
+function changeInRoom(ID,gameID) {
   currentlyPlaying.set(ID, gameID)
 }
 
-getInRoom = (ID) => {
+function getInRoom(ID) {
   return currentlyPlaying.get(ID)
 }
 
@@ -317,17 +358,16 @@ wss.on('connection', function connection(ws) {
 
           //if the user is in a room, send them the room info
           if (checkInRoom(userdata.userID)) {
-
             if (!checkRoomStarted(getInRoom(userdata.userID))) {
               ws.send(JSON.stringify({
                 "type": "create",
                 "message": getInRoom(userdata.userID)
               }))
             } else {
-              //console.log("redirect to chessboard")
+              console.log("redirect to chessboard")
               ws.send(JSON.stringify({
                 "type": "redirect",
-                "message":"chess"
+                "message": "chess"
               }))
             }
           }
@@ -384,7 +424,7 @@ wss.on('connection', function connection(ws) {
             //console.log("redirecting")
             changeInRoom(userdata.userID, data.message)
             ws.send(JSON.stringify(meta));
-
+            getClient(getRoom(data.message).id1).send(JSON.stringify(meta));
             console.log("redirecting")
 
             const opponent = getRoom(getInRoom(userdata.userID)).id1
@@ -403,7 +443,31 @@ wss.on('connection', function connection(ws) {
           }
         }
       }
+      else if (data.type == "start") {
+        let gameID = getInRoom(userdata.userID)
 
+        if (gameID == "") {
+          const meta = {
+            "type": "redirect",
+            "message": "home"
+          }
+          ws.send(JSON.stringify(meta));
+          return;
+        }
+
+        if (checkRoomStarted(getInRoom(userdata.userID))) {
+          const meta = {
+            "type": "start",
+            "side": checkSide(userdata.userID, gameID),
+            "player1": database[getRoom(gameID).id1].username,
+            "player2": database[getRoom(gameID).id2].username,
+            "message": getRoom(gameID).chess.pgn()
+          }
+          ws.send(JSON.stringify(meta));
+        }
+
+
+      }
       //when the client sends invalid data
     } catch (error) {
       ws.send(JSON.stringify({ "type": "status", "message": "fatal error" }));
@@ -430,3 +494,4 @@ wss.on('connection', function connection(ws) {
 server.listen(port, () => {
   console.log(`App listening at port ${port}`)
 })
+
