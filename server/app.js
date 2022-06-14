@@ -1,8 +1,10 @@
 const express = require('express');
 const path = require('path');
-const cors = require('cors')
+const cors = require('cors');
 
 const app = express();
+
+console.log();
 
 app.use(express.static(path.join(__dirname, '..', 'client', 'build')));
 app.use(express.static('public'));
@@ -15,10 +17,10 @@ app.use(
     })
 );
 
-// const indexRouter = require('./routes/index');
 const apiRouter = require('./routes/api');
+const indexRouter = require('./routes/index');
 
-// app.use('/', indexRouter);
 app.use('/api', apiRouter);
+app.use('*', indexRouter);
 
 module.exports = app;
