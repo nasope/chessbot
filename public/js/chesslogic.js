@@ -58,6 +58,7 @@ function onDrop(source, target) {
     // illegal move
     if (move === null) return 'snapback'
     console.log(source + " " + target)
+    move(move)
 }
 
 function onMouseoverSquare(square, piece) {
@@ -110,5 +111,3 @@ function init(team, data) {
         board.orientation('black')
     }
 }
-
-init("b", "start")

@@ -193,19 +193,36 @@ app.use((req, res, next) => {
   }
 })
 app.get('/home', (req, res) => {
+
+  if (checkInRoom(parseInt(req.cookies.userID))) {
+    if (checkRoomStarted(getInRoom(parseInt(req.cookies.userID)))) {
+      res.redirect('/chess')
+      return
+    }
+  }
+
   res.render('pages/home', { name: req.cookies.username })
 })
+
 app.get('/matchMaking', (req, res) => {
+
+  if (checkInRoom(parseInt(req.cookies.userID))) {
+    if (checkRoomStarted(getInRoom(parseInt(req.cookies.userID)))) {
+      res.redirect('/chess')
+      return
+    }
+  }
+
   res.render('pages/matchMaking', { name: req.cookies.username })
 })
 
 app.get('/chess', (req, res) => {
   if (!checkInRoom(parseInt(req.cookies.userID))) {
-    console.log("not in room")
-  res.redirect('/matchMaking')
+    //console.log("not in room")
+    res.redirect('/matchMaking')
   } else {
-    console.log("in redirect")
-  res.render('pages/chess')
+    //console.log("in redirect")
+    res.render('pages/chess')
   }
 })
 
@@ -276,7 +293,6 @@ function joinRoomAsPlayer(ID, gameID) {
   if (games.get(gameID).id2 == null) {
     games.get(gameID).id2 = ID
     games.get(gameID).chess = new Chess();
-    console.log(games.get(gameID).chess.fen())
     return true
   }
 
@@ -312,7 +328,7 @@ function checkInRoom(ID) {
   }
   return false;
 }
-function changeInRoom(ID,gameID) {
+function changeInRoom(ID, gameID) {
   currentlyPlaying.set(ID, gameID)
 }
 
@@ -363,20 +379,14 @@ wss.on('connection', function connection(ws) {
                 "type": "create",
                 "message": getInRoom(userdata.userID)
               }))
-            } else {
-              console.log("redirect to chessboard")
-              ws.send(JSON.stringify({
-                "type": "redirect",
-                "message": "chess"
-              }))
             }
           }
           return
         }
       }
       const data = JSON.parse(str);
+      //if the client want to send a 
 
-      //if the client want to send a message
       if (data.type == "message") {
 
         const meta = {
@@ -407,7 +417,7 @@ wss.on('connection', function connection(ws) {
           ws.send(JSON.stringify(meta));
         }
       }
-      else if (data.type = "join") {
+      else if (data.type == "join") {
         if (checkInRoom(userdata.userID)) {
           const meta = {
             "type": "status",
@@ -425,7 +435,6 @@ wss.on('connection', function connection(ws) {
             changeInRoom(userdata.userID, data.message)
             ws.send(JSON.stringify(meta));
             getClient(getRoom(data.message).id1).send(JSON.stringify(meta));
-            console.log("redirecting")
 
             const opponent = getRoom(getInRoom(userdata.userID)).id1
             getClient(opponent).send(JSON.stringify({
@@ -444,29 +453,51 @@ wss.on('connection', function connection(ws) {
         }
       }
       else if (data.type == "start") {
-        let gameID = getInRoom(userdata.userID)
-
-        if (gameID == "") {
-          const meta = {
-            "type": "redirect",
-            "message": "home"
-          }
-          ws.send(JSON.stringify(meta));
-          return;
-        }
 
         if (checkRoomStarted(getInRoom(userdata.userID))) {
+          let gameID = getInRoom(userdata.userID)
+
           const meta = {
             "type": "start",
             "side": checkSide(userdata.userID, gameID),
             "player1": database[getRoom(gameID).id1].username,
             "player2": database[getRoom(gameID).id2].username,
-            "message": getRoom(gameID).chess.pgn()
+            "message": getRoom(gameID).chess.fen()
           }
           ws.send(JSON.stringify(meta));
+
+        }
+      }
+      else if (data.type == "move") {
+        let roomID = getInRoom(userdata.userID)
+        let room = getRoom(roomID)
+        let move = null
+      
+        if (data.move.color != room.chess.turn()) {return;}
+
+        if (userdata.userID == room.id1) {
+          if (data.move.color != "w") {return;}
+          move = room.chess.move(data.move)
+
+
+        } else if (userdata.userID == room.id2) {
+          if (data.move.color != "b") {return;}
+          move = room.chess.move(data.move)
+
+
+        } else {
+          return
+        }
+        
+        if (move === null) {
+          console.log("illegal move")
         }
 
-
+        if (userdata.userID == room.id1) {
+          getClient(room.id2).send(JSON.stringify({"type":"move","move":data.move}))
+        } else {
+          getClient(room.id1).send(JSON.stringify({"type":"move","move":data.move}))
+        }
       }
       //when the client sends invalid data
     } catch (error) {
