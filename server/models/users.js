@@ -1,36 +1,60 @@
-const users = [
-    {
-        username: 'Alex',
-        password: '123',
-    },
-    {
-        username: 'Mew',
-        password: 'abc',
-    },
-];
+const path = require('path');
+const fs = require('fs');
 
-function getUsers() {
-    return users;
+const databasePath = path.resolve(__dirname, '..', 'database.json');
+
+/*
+    IN GENERAL:
+    This section handles requests to the database.
+    Controllers use these functions for interacting with the database.
+    A simple json file (database.json) is used as the database for now.
+    All the functions returns promises.
+*/
+
+function user_list() {
+    return fs.promises
+        .readFile(databasePath)
+        .then((rawData) => {
+            return JSON.parse(rawData);
+        })
+        .catch((err) => {
+            console.log(err);
+        });
 }
 
-function getUser(username) {
-    return users.filter((user) => {
-        return user.username === username;
+function user_create(user) {
+    return user_list().then((users) => {
+        users.push(user);
+
+        return fs.promises.writeFile(databasePath, JSON.stringify(users)).catch((err) => {
+            console.log(err);
+        });
     });
 }
 
-function addUser(user) {
-    users.push(user);
+function user_detail(username) {
+    return user_list().then((users) => {
+        return users.filter((user) => {
+            return user.username === username;
+        });
+    });
 }
 
-function removeUser(username) {
-    const index = users.indexOf(username);
-    if (index !== -1) {
-        users.splice(index, 1);
-    }
+function user_update(username, detail) {
+    // update user
 }
 
-exports.getUsers = getUsers;
-exports.getUser = getUser;
-exports.addUser = addUser;
-exports.removeUser = removeUser;
+function user_delete(username) {
+    // delete user
+}
+
+function user_exist(username) {
+    // user exist
+}
+
+exports.user_list = user_list;
+exports.user_create = user_create;
+exports.user_detail = user_detail;
+exports.user_update = user_update;
+exports.user_delete = user_delete;
+exports.user_exist = user_exist;
