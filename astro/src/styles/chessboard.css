@@ -1,0 +1,5 @@
+.board-element {
+    position: absolute;
+    width: calc(100% / 8);
+    height: calc(100% / 8);
+}

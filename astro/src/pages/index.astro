@@ -1,0 +1,39 @@
+---
+import MainLayout from "../layouts/MainLayout.astro";
+
+import { verifyToken } from "../utils/auth";
+import cookie from "cookie";
+
+const token = cookie.parse(Astro.request.headers.get("cookie") || "").token;
+const verification = verifyToken(token);
+if (verification.valid) {
+	return Astro.redirect("/home");
+}
+---
+
+<MainLayout title="Chess">
+	<div class="wrapper">
+		<div>
+			<h1>Chess</h1>
+			<p>Sign up <a href="/sign-up">here</a></p>
+			<p>Log In <a href="/login">here</a></p>
+		</div>
+	</div>
+</MainLayout>
+
+<style>
+	a {
+		color: rgb(162, 186, 255);
+	}
+
+	p {
+		margin-top: 40px;
+	}
+
+	.wrapper {
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		margin-top: 20vh;
+	}
+</style>

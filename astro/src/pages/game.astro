@@ -1,0 +1,32 @@
+---
+import Board from "../components/chess/Board.svelte";
+import MainLayout from "../layouts/MainLayout.astro";
+
+const position = [
+	{ type: "wq", square: { x: 0, y: 0 } },
+	{ type: "bn", square: { x: 3, y: 3 } },
+];
+---
+
+<MainLayout title="Game">
+	<main>
+		<div class="container">
+			<Board position={position} client:load />
+		</div>
+	</main>
+</MainLayout>
+
+<style>
+	.container {
+		width: 100vw;
+		height: 100vh;
+		display: flex;
+		justify-content: center;
+		align-items: center;
+	}
+
+	/* temporary (for testing scrolling) */
+	body {
+		height: 300vh;
+	}
+</style>

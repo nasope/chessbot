@@ -1,0 +1,43 @@
+---
+import InputField from "./InputField.astro";
+import SubmitButton from "./SubmitButton.astro";
+
+---
+
+<script>
+    import { initializeApp } from "firebase/app";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyBgeE4AKGJaECXmGH4vZvtZVCqS1ojlr30",
+        authDomain: "styrkerom-44596.firebaseapp.com",
+        projectId: "styrkerom-44596",
+        storageBucket: "styrkerom-44596.appspot.com",
+        messagingSenderId: "293061857699",
+        appId: "1:293061857699:web:2660a6cc73d487801d8a16"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    import { getFirestore, collection, getDocs } from "firebase/firestore";
+    const db = getFirestore();
+
+    function submit(event) {
+        
+        console.log("ayo")
+    }
+
+    // db.collection("users").add({
+    //     name: 
+    // })
+</script>
+
+<form action="">
+    <h1>Registrer</h1>
+    <InputField name="Navn" />
+    <SubmitButton text="Tren" />
+</form>
+
+<style>
+    h1 {
+        margin-bottom: 40px;
+    }
+</style>

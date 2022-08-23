@@ -1,0 +1,22 @@
+{
+    "users": [
+        {
+            "id": "mew",
+            "username": "Mew",
+            "password": "abc123",
+            "rating": 1000
+        },
+        {
+            "id": "nasope",
+            "username": "nasope",
+            "password": "gorilla",
+            "rating": 420
+        },
+        {
+            "username": "John Wick",
+            "password": "alienware",
+            "rating": 6900,
+            "id": "john-wick"
+        }
+    ]
+}

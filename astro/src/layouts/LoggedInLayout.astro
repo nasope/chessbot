@@ -1,0 +1,29 @@
+---
+import MainLayout from "./MainLayout.astro";
+
+const user = Astro.props.user;
+---
+
+<header>
+	<nav class="navbar">
+		<div>{user.username}</div>
+		<div>{user.password}</div>
+	</nav>
+</header>
+
+<main>
+	<slot />
+</main>
+
+<style>
+	.navbar {
+		background-color: rgb(39, 39, 44);
+		color: white;
+		display: flex;
+		gap: 20px;
+		padding: 0px 20px;
+		height: 30px;
+		justify-content: right;
+		align-items: center;
+	}
+</style>

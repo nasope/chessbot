@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 8 8" preserveAspectRatio="none">
+    <defs>
+        <rect id="white-square" width="1" height="1" fill="#cfd9f2" />
+        <rect id="black-square" width="1" height="1" fill="#8092af" />
+        <g id="first-white-row">
+            <use href="#white-square" x="0" />
+            <use href="#black-square" x="1" />
+            <use href="#white-square" x="2" />
+            <use href="#black-square" x="3" />
+            <use href="#white-square" x="4" />
+            <use href="#black-square" x="5" />
+            <use href="#white-square" x="6" />
+            <use href="#black-square" x="7" />
+        </g>
+        <g id="first-black-row">
+            <use href="#black-square" x="0" />
+            <use href="#white-square" x="1" />
+            <use href="#black-square" x="2" />
+            <use href="#white-square" x="3" />
+            <use href="#black-square" x="4" />
+            <use href="#white-square" x="5" />
+            <use href="#black-square" x="6" />
+            <use href="#white-square" x="7" />
+        </g>
+    </defs>
+
+    <use href="#first-white-row" y="0" />
+    <use href="#first-black-row" y="1" />
+    <use href="#first-white-row" y="2" />
+    <use href="#first-black-row" y="3" />
+    <use href="#first-white-row" y="4" />
+    <use href="#first-black-row" y="5" />
+    <use href="#first-white-row" y="6" />
+    <use href="#first-black-row" y="7" />
+</svg>
